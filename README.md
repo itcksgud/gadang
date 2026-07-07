@@ -7,9 +7,13 @@
 
 팀 프로젝트 (SSAFY, 2026.05 ~ 2026.06) · 이후 개인 고도화 진행 중
 
-| 홈 — 지역 추천 | 지도 — 장소 탐색 | 코스 — 자동 생성 |
+| 홈 — 당일치기 지역 추천 | 지도 — 인기 장소 탐색 | 일정 — 타임라인 · 가성비 영수증 |
 |---|---|---|
-| ![홈](images/homepage.png) | ![지도](images/map.png) | ![코스](images/trip_plan.png) |
+| ![홈](images/homepage.png) | ![지도](images/map.png) | ![일정](images/trip_plan.png) |
+
+| 코스 — 조건 입력·선호 순서 | 커뮤니티 — 코스 공유 | 마이페이지 |
+|---|---|---|
+| ![코스](images/course_form.png) | ![커뮤니티](images/community.png) | ![마이](images/mypage.png) |
 
 ---
 
