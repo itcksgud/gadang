@@ -1,0 +1,34 @@
+/.metadata/
+**/application-local.properties
+.env
+frontend/.env.local
+
+# Logs and generated run outputs
+*.log
+result_*.txt
+result_*.json
+*.zip
+front_concept.html
+
+# Build and dependency outputs
+node_modules/
+dist/
+target/
+frontend/node_modules/
+frontend/dist/
+Backend/target/
+
+# Python caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Runtime uploads
+Backend/uploads/*
+!Backend/uploads/.gitkeep
+
+# 클론 잔재(빈 .git 껍데기) 및 Office 임시파일
+/gadang/
+~$*.docx
+Backend/bin/
+ai-server/.venv/

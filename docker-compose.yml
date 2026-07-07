@@ -1,0 +1,64 @@
+# 가당 로컬 스택: MySQL + Redis + Spring 백엔드 + FastAPI RAG 서버
+# 실행:  docker compose up -d --build
+# 키:   루트 .env 에서 자동 로드 (.env 는 git 제외)
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: gadang        # 기동 시 gadang DB 자동 생성
+      MYSQL_USER: gadang
+      MYSQL_PASSWORD: gadang
+    ports:
+      - "3307:3306"   # 호스트 3306은 로컬 MySQL이 사용 중 — Workbench에서 컨테이너 DB는 3307로 접속
+    volumes:
+      - mysql-data:/var/lib/mysql   # 컨테이너 재생성해도 데이터 유지
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"   # 호스트 6379는 다른 프로젝트 redis-db가 사용 중
+
+  ai-server:
+    build: ./ai-server
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "8001:8000"   # 호스트 8000은 다른 프로젝트 ai-service-app이 사용 중
+
+  backend:
+    build: ./Backend
+    depends_on:
+      mysql:
+        condition: service_healthy   # MySQL이 살아난 뒤에 기동
+      redis:
+        condition: service_started
+      ai-server:
+        condition: service_started
+    environment:
+      # Spring relaxed binding: SPRING_DATASOURCE_URL → spring.datasource.url 덮어씀
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/gadang?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: gadang
+      SPRING_DATASOURCE_PASSWORD: gadang
+      RAG_BASE_URL: http://ai-server:8000
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      KAKAO_API_KEY: ${KAKAO_API_KEY:-}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+      ODSAY_API_KEY: ${ODSAY_API_KEY:-}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-}
+      TOUR_API_KEY: ${TOUR_API_KEY:-}
+      DATAGO_API_KEY: ${DATAGO_API_KEY:-}
+    ports:
+      - "8080:8080"
+
+volumes:
+  mysql-data:

@@ -1,0 +1,11 @@
+# 이 파일을 application-local.properties 로 복사해 실제 키를 채우세요.
+# application-local.properties 는 git 에서 제외됩니다.
+
+kakao.api.key=YOUR_KAKAO_REST_KEY
+kakao.client-secret=
+odsay.api.key=YOUR_ODSAY_KEY
+naver.client-id=YOUR_NAVER_CLIENT_ID
+naver.client-secret=YOUR_NAVER_CLIENT_SECRET
+tour.api.key=YOUR_TOURAPI_KEY
+datago.api.key=YOUR_DATAGO_KEY
+spring.ai.openai.api-key=YOUR_OPENAI_API_KEY
