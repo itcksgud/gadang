@@ -5,15 +5,15 @@
 > 현재 위치·가용 시간을 입력하면 **대중교통으로 당일치기 가능한 지역**을 역산해 추천하고,
 > 트렌드·인기 기반으로 장소를 골라 **하루 코스를 자동 생성**하는 서비스.
 
-팀 프로젝트 (SSAFY, 2026.05 ~ 2026.06) · 이후 개인 고도화 진행 중
+팀 프로젝트 (2026.05 ~ 2026.06) · 이후 개인 고도화 진행 중
 
 | 홈 — 당일치기 지역 추천 | 지도 — 인기 장소 탐색 | 일정 — 타임라인 · 가성비 영수증 |
 |---|---|---|
-| ![홈](images/homepage.png) | ![지도](images/map.png) | ![일정](images/trip_plan.png) |
+| ![홈](images/screen_home.png) | ![지도](images/screen_map.png) | ![일정](images/screen_itinerary.png) |
 
 | 코스 — 조건 입력·선호 순서 | 커뮤니티 — 코스 공유 | 마이페이지 |
 |---|---|---|
-| ![코스](images/course_form.png) | ![커뮤니티](images/community.png) | ![마이](images/mypage.png) |
+| ![코스](images/screen_course.png) | ![커뮤니티](images/screen_community.png) | ![마이](images/screen_mypage.png) |
 
 ---
 
