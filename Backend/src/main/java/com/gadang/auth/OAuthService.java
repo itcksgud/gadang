@@ -26,9 +26,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OAuthService {
 
-    private final UserMapper     userMapper;
-    private final JwtProvider    jwtProvider;
-    private final ObjectMapper   objectMapper;
+    private final UserMapper          userMapper;
+    private final JwtProvider         jwtProvider;
+    private final ObjectMapper        objectMapper;
+    private final RefreshTokenService refreshTokenService;
 
     @Value("${naver.client-id}")      private String naverClientId;
     @Value("${naver.client-secret}")  private String naverClientSecret;
@@ -43,7 +44,7 @@ public class OAuthService {
     // ── 네이버 ─────────────────────────────────────────────────────────
 
     @Transactional
-    public AuthResponse loginWithNaver(String code, String redirectUri) {
+    public AuthTokens loginWithNaver(String code, String redirectUri) {
         try {
             String tokenJson = RestClient.create().get()
                     .uri(NAVER_TOKEN_URL + "?grant_type=authorization_code"
@@ -79,7 +80,7 @@ public class OAuthService {
     // ── 카카오 ─────────────────────────────────────────────────────────
 
     @Transactional
-    public AuthResponse loginWithKakao(String code, String redirectUri) {
+    public AuthTokens loginWithKakao(String code, String redirectUri) {
         try {
             String formBody = "grant_type=authorization_code"
                     + "&client_id=" + kakaoRestApiKey
@@ -154,8 +155,9 @@ public class OAuthService {
         return userMapper.findById(newUser.getUserId());
     }
 
-    private AuthResponse issueToken(User user) {
+    private AuthTokens issueToken(User user) {
         String jwt = jwtProvider.createToken(user.getUserId(), user.getEmail(), user.getRole());
-        return new AuthResponse(jwt, UserSummaryResponse.from(user));
+        String refreshToken = refreshTokenService.issue(user.getUserId());
+        return new AuthTokens(new AuthResponse(jwt, UserSummaryResponse.from(user)), refreshToken);
     }
 }

@@ -41,7 +41,8 @@ public class SecurityConfig {
                                 writeError(response, HttpServletResponse.SC_FORBIDDEN, "권한이 없습니다.")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login",
-                                                          "/api/auth/naver/exchange", "/api/auth/kakao/exchange").permitAll()
+                                                          "/api/auth/naver/exchange", "/api/auth/kakao/exchange",
+                                                          "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/notices", "/api/notices/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/community/posts", "/api/community/posts/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/tour/**").permitAll()

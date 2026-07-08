@@ -24,6 +24,10 @@ public class GadangException extends RuntimeException {
         return new GadangException(401, "로그인이 필요합니다.");
     }
 
+    public static GadangException unauthorized(String message) {
+        return new GadangException(401, message);
+    }
+
     public static GadangException forbidden() {
         return new GadangException(403, "권한이 없습니다.");
     }

@@ -89,6 +89,7 @@ Caffeine + Redis, Spring AI(Tool Calling), FastAPI + NumPy(RAG), Vue 3, Docker C
 | 같은 지역인데 GPS/지역명 결과 불일치 | 캐시 키가 진입 경로마다 분리 | 좌표→지역 표준 중심 스냅으로 키 통일 | [devlog](devlog/2026-07-01.md) |
 | 콜드 동시 요청 시 외부 호출 폭증 위험 | cache stampede (sync 부재) | `@Cacheable(sync=true)` | [devlog](devlog/2026-07-01.md) |
 | 인메모리 캐시가 재시작·확장에 취약 | L1 인스턴스 로컬 한계 | L2를 DB 테이블 → Redis 이관, TTL을 EXPIRE에 위임 | [devlog](devlog/2026-07-07.md) |
+| 24h 단일 access 토큰 — XSS 유출 시 무효화 불가 | 서버가 JWT를 회수할 수단 없음 | access 30분 + refresh 14일(HttpOnly 쿠키·Redis 저장·rotation) | [devlog](devlog/2026-07-08.md) |
 
 > 개발 과정 전체는 [devlog/](devlog/) 참고 (삽질 포함 기록)
 

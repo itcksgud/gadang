@@ -10,6 +10,12 @@ window.addEventListener('auth:logout', () => {
   user.value  = null
 })
 
+// refresh 재발급 성공 시 새 access 토큰·유저 정보 반영
+window.addEventListener('auth:refreshed', (e) => {
+  if (e.detail?.token) token.value = e.detail.token
+  if (e.detail?.user)  user.value  = e.detail.user
+})
+
 export function useAuth() {
   const isLoggedIn = computed(() => !!token.value)
 
@@ -34,6 +40,8 @@ export function useAuth() {
   }
 
   function logout() {
+    // 서버의 refresh 토큰 무효화 + 쿠키 삭제 (실패해도 로컬 세션은 정리)
+    api.post('/auth/logout').catch(() => {})
     token.value = ''
     user.value  = null
     localStorage.removeItem('token')

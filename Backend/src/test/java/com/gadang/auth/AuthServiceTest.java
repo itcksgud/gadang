@@ -3,6 +3,7 @@ package com.gadang.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.gadang.common.exception.GadangException;
@@ -28,20 +29,25 @@ class AuthServiceTest {
     @Mock
     private JwtProvider jwtProvider;
 
+    @Mock
+    private RefreshTokenService refreshTokenService;
+
     @InjectMocks
     private AuthService authService;
 
     @Test
-    void loginReturnsTokenWhenPasswordMatches() {
+    void loginReturnsTokenPairWhenPasswordMatches() {
         User user = user("user@test.com", "encoded", "USER");
         when(userMapper.findByEmail("user@test.com")).thenReturn(user);
         when(passwordEncoder.matches("raw", "encoded")).thenReturn(true);
         when(jwtProvider.createToken(1L, "user@test.com", "USER")).thenReturn("token");
+        when(refreshTokenService.issue(1L)).thenReturn("refresh-token");
 
-        AuthResponse response = authService.login(new AuthRequest("user@test.com", "raw"));
+        AuthTokens tokens = authService.login(new AuthRequest("user@test.com", "raw"));
 
-        assertThat(response.token()).isEqualTo("token");
-        assertThat(response.user().email()).isEqualTo("user@test.com");
+        assertThat(tokens.response().token()).isEqualTo("token");
+        assertThat(tokens.response().user().email()).isEqualTo("user@test.com");
+        assertThat(tokens.refreshToken()).isEqualTo("refresh-token");
     }
 
     @Test
@@ -59,16 +65,53 @@ class AuthServiceTest {
         when(passwordEncoder.encode("raw")).thenReturn("encoded");
         when(jwtProvider.createToken(1L, "new@test.com", "USER")).thenReturn("token");
         when(userMapper.findById(1L)).thenReturn(user("new@test.com", "encoded", "USER"));
+        when(refreshTokenService.issue(1L)).thenReturn("refresh-token");
         org.mockito.Mockito.doAnswer(invocation -> {
             User saved = invocation.getArgument(0);
             saved.setUserId(1L);
             return null;
         }).when(userMapper).insert(any(User.class));
 
-        AuthResponse response = authService.signup(new SignupRequest("new@test.com", "raw", "newbie"));
+        AuthTokens tokens = authService.signup(new SignupRequest("new@test.com", "raw", "newbie"));
 
-        assertThat(response.token()).isEqualTo("token");
-        assertThat(response.user().role()).isEqualTo("USER");
+        assertThat(tokens.response().token()).isEqualTo("token");
+        assertThat(tokens.response().user().role()).isEqualTo("USER");
+    }
+
+    @Test
+    void refreshRotatesTokenAndIssuesNewAccessToken() {
+        when(refreshTokenService.consume("old-refresh")).thenReturn(1L);
+        when(userMapper.findById(1L)).thenReturn(user("user@test.com", "encoded", "USER"));
+        when(jwtProvider.createToken(1L, "user@test.com", "USER")).thenReturn("new-access");
+        when(refreshTokenService.issue(1L)).thenReturn("new-refresh");
+
+        AuthTokens tokens = authService.refresh("old-refresh");
+
+        assertThat(tokens.response().token()).isEqualTo("new-access");
+        assertThat(tokens.refreshToken()).isEqualTo("new-refresh");
+    }
+
+    @Test
+    void refreshRejectsUnknownOrReusedToken() {
+        when(refreshTokenService.consume("stolen-or-expired")).thenReturn(null);
+
+        assertThatThrownBy(() -> authService.refresh("stolen-or-expired"))
+                .isInstanceOf(GadangException.class)
+                .hasMessage("세션이 만료되었습니다. 다시 로그인해 주세요.");
+    }
+
+    @Test
+    void refreshRejectsMissingCookie() {
+        assertThatThrownBy(() -> authService.refresh(null))
+                .isInstanceOf(GadangException.class)
+                .hasMessage("세션이 만료되었습니다. 다시 로그인해 주세요.");
+    }
+
+    @Test
+    void logoutRevokesRefreshToken() {
+        authService.logout("refresh-token");
+
+        verify(refreshTokenService).revoke("refresh-token");
     }
 
     private User user(String email, String password, String role) {

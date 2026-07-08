@@ -57,6 +57,8 @@ services:
       NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-}
       TOUR_API_KEY: ${TOUR_API_KEY:-}
       DATAGO_API_KEY: ${DATAGO_API_KEY:-}
+      # .env 미설정 시 dev 기본값 (빈 문자열이면 HS256 키 길이 검증에서 기동 실패)
+      JWT_SECRET: ${JWT_SECRET:-gadang-secret-key-for-development-only}
     ports:
       - "8080:8080"
 
