@@ -27,6 +27,33 @@ public class NaverBlogService {
     private static final int    MIN_COUNT      = 10_000;   // 이 미만이면 탈락
     private static final double LOG_BASE_COUNT = 1_000_000.0; // 100점 기준
 
+    /** 네이버 검색 API는 일일 쿼터와 별개로 초당 호출 속도 제한(429)이 있다.
+     *  스레드 수만 줄여서는 코스 생성이 겹칠 때 총량이 지켜지지 않으므로,
+     *  모든 스레드가 공유하는 전역 슬롯으로 호출 시작 간격을 강제한다. (~8건/초) */
+    private static final long MIN_INTERVAL_MS = 125;
+    private static final Object THROTTLE = new Object();
+    private static long nextSlotAt = 0;
+
+    /** 다음 호출 슬롯을 예약하고 자기 차례까지 대기 */
+    private static void acquireSlot() throws InterruptedException {
+        long waitMs;
+        synchronized (THROTTLE) {
+            long now = System.currentTimeMillis();
+            long slot = Math.max(now, nextSlotAt);
+            nextSlotAt = slot + MIN_INTERVAL_MS;
+            waitMs = slot - now;
+        }
+        if (waitMs > 0) Thread.sleep(waitMs);
+    }
+
+    /** 429 발생 시 자기만 백오프하면 다른 스레드가 계속 때려서 재시도가 전부 소진된다 —
+     *  전역 슬롯을 뒤로 밀어 모든 스레드를 함께 멈춘다. */
+    private static void penalizeAll(long backoffMs) {
+        synchronized (THROTTLE) {
+            nextSlotAt = Math.max(nextSlotAt, System.currentTimeMillis() + backoffMs);
+        }
+    }
+
     @Qualifier("naverRestClient")
     private final RestClient naverRestClient;
 
@@ -55,6 +82,7 @@ public class NaverBlogService {
             }
 
             try {
+                acquireSlot();
                 Map<?, ?> body = naverRestClient
                         .get()
                         .uri(ub -> ub.path("/search/blog")
@@ -69,8 +97,13 @@ public class NaverBlogService {
                 return total instanceof Number ? ((Number) total).intValue() : 0;
 
             } catch (org.springframework.web.client.HttpClientErrorException.TooManyRequests e) {
-                try { Thread.sleep(120L * (1L << attempt)); }   // 120·240·480·960ms
+                long backoff = 250L * (1L << attempt);   // 250·500·1000·2000ms
+                penalizeAll(backoff);                    // 전 스레드 공통 정지 — 재시도가 깨끗한 슬롯을 받게
+                try { Thread.sleep(backoff); }
                 catch (InterruptedException ie) { Thread.currentThread().interrupt(); return 0; }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                return 0;
             } catch (Exception e) {
                 log.warn("네이버 블로그 검색 실패 [{}]: {}", placeName, e.getMessage());
                 return 0;

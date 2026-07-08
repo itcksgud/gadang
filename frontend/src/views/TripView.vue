@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import AppIcon        from '../components/ui/AppIcon.vue'
 import CourseTimeline from '../components/trip/CourseTimeline.vue'
+import TripRouteMap   from '../components/trip/TripRouteMap.vue'
 import { won } from '../data/mock.js'
 import { getTrips, getTripDetail } from '../api/gadang.js'
 import { useAuth } from '../composables/useAuth.js'
@@ -77,6 +78,9 @@ function fmtDate(d) {
 
       <CourseTimeline v-if="detail.course" :course="detail.course" :no="String(detail.tripId)" />
       <p v-else style="color:var(--ink-faint)">저장된 코스 정보가 없습니다.</p>
+
+      <!-- 경로 지도 + 장소 상세 (지도 탭과 같은 구성) -->
+      <TripRouteMap v-if="detail.course" :key="detail.tripId" :course="detail.course" />
     </div>
 
     <!-- ── 목록 (확정 일정들) ──────────────────────────────── -->

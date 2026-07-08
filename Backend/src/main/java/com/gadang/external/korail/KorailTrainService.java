@@ -20,10 +20,10 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 한국철도공사(코레일) 열차운행정보 API
  *
- * 공공데이터포털 서비스: apis.data.go.kr/1613000/TrainInfoService
- *   getCtyCodeList                → 도시코드 목록
- *   getCtyAcctoTrainSttnList      → 도시별 역 목록 (nodeid 형식: NAT…)
- *   getStrtpntAlocFndTrainInfo    → 출발/도착 기준 오늘 열차 시간표
+ * 공공데이터포털 서비스: apis.data.go.kr/1613000/TrainInfo (2026-03 개편 전: TrainInfoService, 오퍼레이션 get→Get)
+ *   GetCtyCodeList                → 도시코드 목록
+ *   GetCtyAcctoTrainSttnList      → 도시별 역 목록 (nodeid 형식: NAT…)
+ *   GetStrtpntAlocFndTrainInfo    → 출발/도착 기준 오늘 열차 시간표
  *
  * DB 저장 포맷은 TRANSIT_ROUTE + TRANSPORT_SCHEDULE (기존 스키마 유지)
  */
@@ -103,7 +103,7 @@ public class KorailTrainService {
         try {
             String today = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
             Map<?, ?> resp = korail.get()
-                    .uri(u -> u.path("/getStrtpntAlocFndTrainInfo")
+                    .uri(u -> u.path("/GetStrtpntAlocFndTrainInfo")
                             .queryParam("serviceKey", apiKey)
                             .queryParam("depPlaceId", depId)
                             .queryParam("arrPlaceId", arrId)
@@ -255,7 +255,7 @@ public class KorailTrainService {
             Map<String, String> map = new ConcurrentHashMap<>();
             try {
                 Map<?, ?> cityResp = korail.get()
-                        .uri(u -> u.path("/getCtyCodeList")
+                        .uri(u -> u.path("/GetCtyCodeList")
                                 .queryParam("serviceKey", apiKey)
                                 .queryParam("_type", "json")
                                 .build())
@@ -265,7 +265,7 @@ public class KorailTrainService {
                 for (Map<?, ?> city : extractItems(cityResp)) {
                     String cityCode = String.valueOf(city.get("citycode"));
                     Map<?, ?> stResp = korail.get()
-                            .uri(u -> u.path("/getCtyAcctoTrainSttnList")
+                            .uri(u -> u.path("/GetCtyAcctoTrainSttnList")
                                     .queryParam("serviceKey", apiKey)
                                     .queryParam("cityCode", cityCode)
                                     .queryParam("numOfRows", 500)

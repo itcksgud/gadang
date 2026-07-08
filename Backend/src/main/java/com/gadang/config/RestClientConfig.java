@@ -78,7 +78,8 @@ public class RestClientConfig {
     @Bean("korailTrainRestClient")
     public RestClient korailTrainRestClient() {
         return RestClient.builder().requestFactory(timeoutFactory())
-                .baseUrl("https://apis.data.go.kr/1613000/TrainInfoService")
+                // 2026-03 개편: TrainInfoService → TrainInfo (오퍼레이션도 Get~ 대문자로 변경)
+                .baseUrl("https://apis.data.go.kr/1613000/TrainInfo")
                 .build();
     }
 }

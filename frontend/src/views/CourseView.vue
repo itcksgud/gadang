@@ -30,6 +30,19 @@ const DEFAULT_CAFE_KIND = '루프탑'
 const lunch  = ref({ kind: '한식', grade: '일반' })
 const dinner = ref({ kind: '상관없음', grade: '일반' })
 const budget = ref(50000)
+const BUDGET_PRESETS = [
+  { v: 0, l: '제한없음' },
+  { v: 30000, l: '3만' },
+  { v: 50000, l: '5만' },
+  { v: 80000, l: '8만' },
+  { v: 120000, l: '12만' },
+]
+// 직접 입력이 슬라이더 범위를 넘으면 슬라이더 최대치를 따라 늘림
+const budgetSliderMax = computed(() => Math.max(120000, Math.ceil(budget.value / 10000) * 10000))
+function setBudget(raw) {
+  const n = Math.max(0, Math.floor(Number(String(raw).replace(/[^0-9]/g, '')) || 0))
+  budget.value = n
+}
 const anchors = ref([])
 const gpsCoord = ref(null)
 const gpsName = ref('')
@@ -99,6 +112,36 @@ const generating = ref(false)
 const saving     = ref(false)
 const result     = ref(null)   // null = 조건 입력, 객체 = 추천 결과 타임라인
 
+/* ── 생성 중 진행 오버레이 ─────────────────────────────
+ * 백엔드가 단계별 이벤트를 주지 않으므로 경과 시간 기반 추정 단계 표시.
+ * 마지막 단계에서 멈춰 기다리는 형태 — 완료를 약속하지 않는 소프트 진행바. */
+const LOADING_STEPS = [
+  '목적지 주변 후보 장소 모으는 중',
+  '트렌드·인기 점수 매기는 중',
+  '이동 거리 기준으로 동선 짜는 중',
+  '식사·카페 시간 배치하는 중',
+  '귀가 시간까지 되는지 검증하는 중',
+]
+const loadingStep = ref(0)
+const loadingElapsed = ref(0)
+let _loadingTimer = null
+
+function startLoadingProgress() {
+  loadingStep.value = 0
+  loadingElapsed.value = 0
+  clearInterval(_loadingTimer)
+  _loadingTimer = setInterval(() => {
+    loadingElapsed.value += 1
+    // 5초마다 다음 단계로, 마지막 단계에서 대기
+    loadingStep.value = Math.min(Math.floor(loadingElapsed.value / 5), LOADING_STEPS.length - 1)
+  }, 1000)
+}
+
+function stopLoadingProgress() {
+  clearInterval(_loadingTimer)
+  _loadingTimer = null
+}
+
 // 결과 화면 경로 지도
 const resultMapEl = ref(null)
 const routePlaces = computed(() =>
@@ -109,6 +152,10 @@ const regenerating = ref(false)
 const editDirty = ref(false)
 const editEntries = ref([])
 let editSeq = 0
+
+const showLoadingOverlay = computed(() => generating.value || regenerating.value)
+watch(showLoadingOverlay, (on) => (on ? startLoadingProgress() : stopLoadingProgress()))
+onUnmounted(stopLoadingProgress)
 
 const ACT_MAP  = { sight: 'TOURIST_SPOT', park: 'PARK', photo: 'PHOTO_SPOT', culture: 'CULTURAL', shop: 'SHOPPING' }
 const CAFE_MAP = { 일반: 'GENERAL', 루프탑: 'ROOFTOP', 베이커리: 'BAKERY', '테마·이색': 'THEME' }
@@ -1407,6 +1454,23 @@ const budgetLabel = computed(() => budget.value === 0 ? '제한 없음' : budget
 
 <template>
   <div class="screen-wrap" style="max-width:1240px">
+    <!-- 코스 생성 진행 오버레이 -->
+    <Teleport to="body">
+      <div v-if="showLoadingOverlay" class="gen-overlay" role="status" aria-live="polite">
+        <div class="gen-panel">
+          <div class="gen-spinner" aria-hidden="true"></div>
+          <div class="gen-title">{{ regenerating ? '코스를 다시 짜고 있어요' : '하루 코스를 만들고 있어요' }}</div>
+          <ul class="gen-steps">
+            <li v-for="(step, i) in LOADING_STEPS" :key="step"
+                :class="{ done: i < loadingStep, active: i === loadingStep }">
+              <span class="gen-step-mark">{{ i < loadingStep ? '✓' : (i === loadingStep ? '●' : '○') }}</span>
+              {{ step }}
+            </li>
+          </ul>
+          <div class="gen-elapsed mono">{{ loadingElapsed }}초 경과 · 외부 지도·교통 데이터를 모으는 중이라 첫 생성은 오래 걸릴 수 있어요</div>
+        </div>
+      </div>
+    </Teleport>
     <header v-if="!result" class="cover" style="margin-bottom:22px">
       <div class="cover-meta">
         <span class="eyebrow">코스 조건 입력 · BRIEF</span>
@@ -1441,14 +1505,6 @@ const budgetLabel = computed(() => budget.value === 0 ? '제한 없음' : budget
         <p class="lede">{{ result.startPoint }} 출발 · {{ result.startTime }}~{{ result.endTime }} · {{ result.placeCount }}장소 코스</p>
       </header>
 
-      <!-- 방문 순서 경로 지도 -->
-      <div v-if="routePlaces.length" class="card" style="padding:0;overflow:hidden;margin-bottom:22px">
-        <div style="padding:12px 16px;font-weight:700;font-size:14px;border-bottom:1px solid var(--line,#eee)">
-          방문 순서 경로 · {{ routePlaces.length }}곳
-        </div>
-        <div ref="resultMapEl" style="width:100%;height:360px"></div>
-      </div>
-
       <CourseTimeline
         :course="result"
         :return-limit="arr"
@@ -1472,6 +1528,14 @@ const budgetLabel = computed(() => budget.value === 0 ? '제한 없음' : budget
         <button class="btn btn-primary btn-lg" @click="confirmTrip" :disabled="saving">
           <AppIcon name="bookmark" style="width:18px;height:18px" /> {{ saving ? '저장 중…' : '이 일정으로 확정하기' }}
         </button>
+      </div>
+
+      <!-- 방문 순서 경로 지도 (맨 아래) -->
+      <div v-if="routePlaces.length" class="card" style="padding:0;overflow:hidden;margin-top:24px">
+        <div style="padding:12px 16px;font-weight:700;font-size:14px;border-bottom:1px solid var(--line,#eee)">
+          방문 순서 경로 · {{ routePlaces.length }}곳
+        </div>
+        <div ref="resultMapEl" style="width:100%;height:360px"></div>
       </div>
     </div>
 
@@ -1639,15 +1703,34 @@ const budgetLabel = computed(() => budget.value === 0 ? '제한 없음' : budget
             <div><div style="font-weight:700;font-size:15.5px">예산 가이드</div></div>
           </div>
           <div style="padding:4px 2px">
-            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
-              <span style="font-size:13.5px;font-weight:600">소프트 예산 가이드</span>
-              <span class="mono" style="font-size:17px;font-weight:700;color:var(--accent-deep)">{{ budgetLabel }}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px">
+              <span style="font-size:13.5px;font-weight:600;flex-shrink:0">소프트 예산 가이드</span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <input
+                  type="number" min="0" step="1000"
+                  :value="budget"
+                  @input="setBudget($event.target.value)"
+                  class="inp mono"
+                  style="width:110px;text-align:right;font-size:15px;font-weight:700;color:var(--accent-deep)"
+                  placeholder="0"
+                />
+                <span style="font-size:13px;color:var(--ink-soft)">원</span>
+              </div>
             </div>
-            <input type="range" min="0" max="120000" step="5000" v-model.number="budget"
+            <input type="range" min="0" :max="budgetSliderMax" step="5000" v-model.number="budget"
                    style="width:100%;accent-color:var(--accent)" />
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-faint);margin-top:2px" class="mono">
-              <span>제한없음</span><span>120,000원</span>
+              <span>제한없음</span><span>{{ budgetSliderMax.toLocaleString('ko-KR') }}원</span>
             </div>
+            <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+              <button v-for="p in BUDGET_PRESETS" :key="p.v" type="button"
+                      class="badge" :class="budget === p.v ? 'badge-accent' : ''"
+                      style="border:1px solid var(--line,#ddd);cursor:pointer"
+                      @click="budget = p.v">{{ p.l }}</button>
+            </div>
+            <p style="font-size:11.5px;color:var(--ink-faint);margin:8px 0 0">
+              {{ budget === 0 ? '예산 제한 없이 추천해요.' : `교통비 포함 약 ${budgetLabel} 안에서 코스를 맞춰봐요.` }}
+            </p>
           </div>
         </div>
       </div>
@@ -2448,5 +2531,73 @@ const budgetLabel = computed(() => budget.value === 0 ? '제한 없음' : budget
     grid-column: 2;
     white-space: normal;
   }
+}
+</style>
+
+<style scoped>
+/* ── 코스 생성 진행 오버레이 ── */
+.gen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 18, 24, 0.55);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.gen-panel {
+  background: var(--card, #fff);
+  border-radius: 14px;
+  padding: 28px 30px 22px;
+  width: min(420px, 100%);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+.gen-spinner {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  border: 4px solid var(--accent-wash, #e6eefb);
+  border-top-color: var(--accent, #2b6cb0);
+  animation: gen-spin 0.9s linear infinite;
+}
+@keyframes gen-spin { to { transform: rotate(360deg); } }
+.gen-title {
+  font-weight: 800;
+  font-size: 17px;
+  margin-bottom: 16px;
+}
+.gen-steps {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gen-steps li {
+  font-size: 13.5px;
+  color: var(--ink-faint, #999);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.3s;
+}
+.gen-steps li.active {
+  color: var(--accent-deep, #1a4e8a);
+  font-weight: 700;
+}
+.gen-steps li.done { color: var(--ink-soft, #555); }
+.gen-step-mark { width: 16px; text-align: center; flex-shrink: 0; }
+.gen-steps li.active .gen-step-mark { animation: gen-pulse 1.1s ease-in-out infinite; }
+@keyframes gen-pulse { 50% { opacity: 0.35; } }
+.gen-elapsed {
+  font-size: 11.5px;
+  color: var(--ink-faint, #999);
+  line-height: 1.5;
 }
 </style>
