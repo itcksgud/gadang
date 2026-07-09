@@ -37,6 +37,12 @@ public class TransitRouteRefreshJob {
     private static final int RAIL_DAILY_LIMIT = 200;  // 코레일 쿼터 10,000 중 2% 사용
     private static final int BUS_DAILY_LIMIT  = 80;   // ODsay 쿼터 1,000 중 8% 사용
 
+    // 갱신 주기 — 시간표 개정 빈도에 맞춘다. 기차/시외버스 시간표는 분기 단위 개정이라
+    // 매일 전 노선을 다시 긁을 이유가 없고, 주기를 늘리면 일 예산이 신규 노선 워밍에 쓰인다.
+    // (기존 20시간 기준은 전 노선 매일 갱신 = KTX 쌍 수가 예산을 넘어 일부가 영구 미갱신되는 구조였음)
+    private static final int RAIL_STALE_DAYS = 7;
+    private static final int BUS_STALE_DAYS  = 14;
+
     /** 매일 04:00 */
     @Scheduled(cron = "0 0 4 * * *")
     public void refreshStaleRoutes() {
@@ -71,7 +77,7 @@ public class TransitRouteRefreshJob {
 
         // 4. 기존 중 오래된 것
         List<TransitRoute> stale = routeMapper.findStaleRailPairs(
-                LocalDateTime.now().minusHours(20), RAIL_DAILY_LIMIT);
+                LocalDateTime.now().minusDays(RAIL_STALE_DAYS), RAIL_DAILY_LIMIT);
 
         int ok = 0, fail = 0;
         int budget = RAIL_DAILY_LIMIT;
@@ -116,7 +122,7 @@ public class TransitRouteRefreshJob {
         // 여기서는 이미 DB에 있는 ODSAY: 키 쌍 중 오래된 것만 갱신
         // (새 터미널은 홈 탭 조회 시 write-through로 자동 등록됨)
         List<TransitRoute> stale = routeMapper.findStaleBusPairs(
-                LocalDateTime.now().minusDays(6), BUS_DAILY_LIMIT);
+                LocalDateTime.now().minusDays(BUS_STALE_DAYS), BUS_DAILY_LIMIT);
 
         int ok = 0, fail = 0;
         for (TransitRoute row : stale) {
