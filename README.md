@@ -103,6 +103,7 @@ Caffeine + Redis, Spring AI(Tool Calling), FastAPI + NumPy(RAG), Vue 3, Docker C
 | 콜드 동시 요청 시 외부 호출 폭증 위험 | cache stampede (sync 부재) | `@Cacheable(sync=true)` | [devlog](devlog/2026-07-01.md) |
 | 인메모리 캐시가 재시작·확장에 취약 | L1 인스턴스 로컬 한계 | L2를 DB 테이블 → Redis 이관, TTL을 EXPIRE에 위임 | [devlog](devlog/2026-07-07.md) |
 | 24h 단일 access 토큰 — XSS 유출 시 무효화 불가 | 서버가 JWT를 회수할 수단 없음 | access 30분 + refresh 14일(HttpOnly 쿠키·Redis 저장·rotation) | [devlog](devlog/2026-07-08.md) |
+| 게시글 이미지가 앱 서버 디스크 저장 — 확장 불가·유실, 위장 파일 XSS 구멍 | 로컬 파일 + 클라이언트 신고값 신뢰 | 스토리지 추상화 후 S3 호환(MinIO→AWS) 이관, 매직 바이트 검증 | [devlog](devlog/2026-07-09.md) |
 
 > 개발 과정 전체는 [devlog/](devlog/) 참고 (삽질 포함 기록)
 
@@ -116,7 +117,7 @@ docker compose up -d --build
 # backend :8080 / frontend는 frontend/에서 pnpm install && pnpm dev (:5173)
 ```
 
-MySQL·Redis·백엔드·AI서버 4개 컨테이너가 기동되며 스키마는 자동 생성됩니다.
+MySQL·Redis·MinIO·백엔드·AI서버 5개 컨테이너가 기동되며 스키마·버킷은 자동 생성됩니다.
 
 ## 문서
 

@@ -25,6 +25,23 @@ services:
     ports:
       - "6380:6379"   # 호스트 6379는 다른 프로젝트 redis-db가 사용 중
 
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9002:9000"   # S3 API (브라우저의 이미지 GET도 이 포트)
+      - "9003:9001"   # 웹 콘솔
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   ai-server:
     build: ./ai-server
     environment:
@@ -41,6 +58,8 @@ services:
         condition: service_started
       ai-server:
         condition: service_started
+      minio:
+        condition: service_healthy   # 기동 시 버킷 생성/정책 적용이 있어 준비 후 시작
     environment:
       # Spring relaxed binding: SPRING_DATASOURCE_URL → spring.datasource.url 덮어씀
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/gadang?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
@@ -59,8 +78,15 @@ services:
       DATAGO_API_KEY: ${DATAGO_API_KEY:-}
       # .env 미설정 시 dev 기본값 (빈 문자열이면 HS256 키 길이 검증에서 기동 실패)
       JWT_SECRET: ${JWT_SECRET:-gadang-secret-key-for-development-only}
+      # 게시글 이미지 — S3 호환 스토리지(MinIO). 운영 전환: S3_ENDPOINT 비우고 AWS 키/리전 지정
+      STORAGE_MODE: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_BASE_URL: http://localhost:9002/gadang-images   # 브라우저 접근 경로 (호스트 매핑 포트)
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
     ports:
       - "8080:8080"
 
 volumes:
   mysql-data:
+  minio-data:
