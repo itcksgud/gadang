@@ -1,5 +1,7 @@
 # 가당 (GaDang) — 가성비 당일치기 여행 플래너
 
+[![CI](https://github.com/itcksgud/gadang/actions/workflows/ci.yml/badge.svg)](https://github.com/itcksgud/gadang/actions/workflows/ci.yml)
+
 > "지금 여기서, 오늘 하루 안에 어디를 가장 알차게 다녀올 수 있을까?"
 >
 > 현재 위치·가용 시간을 입력하면 **대중교통으로 당일치기 가능한 지역**을 역산해 추천하고,
