@@ -1085,6 +1085,27 @@ class CourseRecommendationServiceTest {
         return entry;
     }
 
+    @Test
+    void 자정을_넘는_일정은_조용히_틀리는_대신_명시적으로_거부한다() {
+        // LocalTime 래핑: 23:00 출발 + 서울→강릉 장거리 이동(수백 분) = 자정 초과.
+        // 가드 전에는 00:xx가 23:50보다 "이르다"고 판정돼 검증이 뚫렸다.
+        CourseRequest request = baseRequest();
+        request.setDepartureTime(LocalTime.of(23, 0));
+        request.setReturnTime(LocalTime.of(23, 50));
+        request.setStartAddress("서울");
+        request.setStartLat(37.5547);
+        request.setStartLng(126.9707);
+
+        when(scoredPlaceProvider.getScoredPlaces(anyDouble(), anyDouble(), anyInt(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(place("p1", "경포대", "AT4", 37.7956, 128.8961, 90)));
+        when(odsayTransitService.getTransit(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(null);
+
+        assertThatThrownBy(() -> service.generate(request))
+                .isInstanceOf(GadangException.class)
+                .hasMessageContaining("자정");
+    }
+
     private CourseRequest baseRequest() {
         CourseRequest request = new CourseRequest();
         request.setRegion("강릉");

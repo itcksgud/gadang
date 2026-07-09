@@ -1,7 +1,6 @@
 package com.gadang.security;
 
 import com.gadang.user.User;
-import com.gadang.user.UserMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -15,11 +14,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
-    private final UserMapper userMapper;
+    private final AuthUserCache authUserCache;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider, UserMapper userMapper) {
+    public JwtAuthenticationFilter(JwtProvider jwtProvider, AuthUserCache authUserCache) {
         this.jwtProvider = jwtProvider;
-        this.userMapper = userMapper;
+        this.authUserCache = authUserCache;
     }
 
     /**
@@ -36,7 +35,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null) {
             try {
                 Long userId = jwtProvider.getUserId(token);
-                User user = userMapper.findById(userId);
+                // 매 요청 DB 조회 대신 60초 캐시 경유 — 탈퇴·권한 변경은 evict로 즉시 반영 (AuthUserCache)
+                User user = authUserCache.find(userId);
                 if (user != null) {
                     CurrentUser currentUser = new CurrentUser(user.getUserId(), user.getEmail(), user.getNickname(), user.getRole());
                     var authentication = new UsernamePasswordAuthenticationToken(

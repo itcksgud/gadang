@@ -1,6 +1,7 @@
 package com.gadang.admin;
 
 import com.gadang.common.exception.GadangException;
+import com.gadang.security.AuthUserCache;
 import com.gadang.common.response.PageResponse;
 import com.gadang.user.User;
 import com.gadang.user.UserMapper;
@@ -18,10 +19,12 @@ public class AdminService {
 
     private final UserMapper userMapper;
     private final AdminMapper adminMapper;
+    private final AuthUserCache authUserCache;
 
-    public AdminService(UserMapper userMapper, AdminMapper adminMapper) {
+    public AdminService(UserMapper userMapper, AdminMapper adminMapper, AuthUserCache authUserCache) {
         this.userMapper = userMapper;
         this.adminMapper = adminMapper;
+        this.authUserCache = authUserCache;
     }
 
     public PageResponse<UserSummaryResponse> users(int page, int size, String query) {
@@ -47,6 +50,7 @@ public class AdminService {
         }
         requireUser(userId);
         userMapper.updateRole(userId, role);
+        authUserCache.evict(userId);   // 권한 변경 즉시 반영 — 60초 캐시를 기다리지 않음
         return UserSummaryResponse.from(requireUser(userId));
     }
 
@@ -54,6 +58,7 @@ public class AdminService {
     public void deleteUser(Long userId) {
         requireUser(userId);
         userMapper.deleteById(userId);
+        authUserCache.evict(userId);   // 탈퇴 즉시 반영 — 캐시된 토큰 인증 차단
     }
 
     public OperationSummaryResponse operationSummary() {

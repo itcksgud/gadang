@@ -185,7 +185,7 @@ public class CourseRecommendationService {
             currentLng = meta.hubLng;
         } else if (haversineKm(currentLat, currentLng, meta.hubLat, meta.hubLng) >= 0.05) {
             TravelLeg outbound = travel(currentLat, currentLng, meta.hubLat, meta.hubLng);
-            LocalTime arrival = currentTime.plusMinutes(outbound.minutes);
+            LocalTime arrival = advance(currentTime, outbound.minutes);
             items.add(CourseResponse.CourseItem.transit(
                     outbound.mode,
                     currentName,
@@ -209,7 +209,7 @@ public class CourseRecommendationService {
             if (isConcreteEntry(entry)) {
                 ConcretePlace place = concretePlace(entry);
                 TravelLeg leg = travel(currentLat, currentLng, place.lat(), place.lng());
-                LocalTime arrival = currentTime.plusMinutes(leg.minutes);
+                LocalTime arrival = advance(currentTime, leg.minutes);
                 items.add(CourseResponse.CourseItem.transit(
                         leg.mode,
                         currentName,
@@ -236,7 +236,7 @@ public class CourseRecommendationService {
                         place.role(),
                         "사용자 유지"
                 ));
-                currentTime = arrival.plusMinutes(place.stay());
+                currentTime = advance(arrival, place.stay());
                 currentName = place.name();
                 currentLat = place.lat();
                 currentLng = place.lng();
@@ -291,7 +291,7 @@ public class CourseRecommendationService {
                     regenerateSlotRole(entry),
                     "편집 슬롯 재생성"
             ));
-            currentTime = arrival.plusMinutes(stay);
+            currentTime = advance(arrival, stay);
             currentName = selected.getName();
             currentLat = selected.getLat();
             currentLng = selected.getLng();
@@ -302,7 +302,7 @@ public class CourseRecommendationService {
         if (selectedTransport != null) {
             if (haversineKm(currentLat, currentLng, meta.hubLat, meta.hubLng) >= 0.05) {
                 TravelLeg toHub = travel(currentLat, currentLng, meta.hubLat, meta.hubLng);
-                LocalTime hubArrival = currentTime.plusMinutes(toHub.minutes);
+                LocalTime hubArrival = advance(currentTime, toHub.minutes);
                 items.add(CourseResponse.CourseItem.transit(
                         toHub.mode,
                         currentName,
@@ -318,7 +318,7 @@ public class CourseRecommendationService {
             currentTime = addSelectedReturn(items, selectedTransport, startPoint.name(), currentTime, end);
         } else if (placeCount > 0 || haversineKm(currentLat, currentLng, startPoint.lat(), startPoint.lng()) >= 0.05) {
             TravelLeg back = travel(currentLat, currentLng, startPoint.lat(), startPoint.lng());
-            LocalTime arrival = currentTime.plusMinutes(back.minutes);
+            LocalTime arrival = advance(currentTime, back.minutes);
             items.add(CourseResponse.CourseItem.transit(
                     back.mode,
                     currentName,
@@ -487,6 +487,9 @@ public class CourseRecommendationService {
             PlaceCandidate selected = bestOptionalCandidate(
                     currentLat, currentLng, targetLat, targetLng, matching, adjustedScores);
             TravelLeg leg = travel(currentLat, currentLng, selected.getLat(), selected.getLng());
+            if (wrapsPastMidnight(currentTime, leg.minutes)) {
+                return null;
+            }
             return new RegeneratePlan(selected, currentTime.plusMinutes(leg.minutes), regenerateSlotStay(entry, selected));
         }
 
@@ -508,11 +511,17 @@ public class CourseRecommendationService {
                                                    double targetLng,
                                                    TimeWindow window) {
         TravelLeg outbound = travel(currentLat, currentLng, candidate.getLat(), candidate.getLng());
+        if (wrapsPastMidnight(currentTime, outbound.minutes)) {
+            return null;
+        }
         LocalTime arrival = currentTime.plusMinutes(outbound.minutes);
         if (arrival.isBefore(window.start())) {
             arrival = window.start();
         }
         int stay = regenerateSlotStay(entry, candidate);
+        if (wrapsPastMidnight(arrival, stay)) {
+            return null;
+        }
         if (arrival.plusMinutes(stay).isAfter(window.end())) {
             return null;
         }
@@ -975,7 +984,7 @@ public class CourseRecommendationService {
             currentLng = meta.hubLng;
         } else if (haversineKm(currentLat, currentLng, meta.hubLat, meta.hubLng) >= 0.05) {
             TravelLeg outbound = travel(currentLat, currentLng, meta.hubLat, meta.hubLng);
-            LocalTime arrival = currentTime.plusMinutes(outbound.minutes);
+            LocalTime arrival = advance(currentTime, outbound.minutes);
             if (arrival.isAfter(end)) {
                 throw GadangException.badRequest("목적지까지 이동할 시간이 부족합니다.");
             }
@@ -998,7 +1007,7 @@ public class CourseRecommendationService {
             Anchor anchor = anchors.get(i);
             if (anchor.visitTime() == null) {
                 TravelLeg toAnchor = travel(currentLat, currentLng, anchor.lat(), anchor.lng());
-                LocalTime anchorArrival = currentTime.plusMinutes(toAnchor.minutes);
+                LocalTime anchorArrival = advance(currentTime, toAnchor.minutes);
                 items.add(CourseResponse.CourseItem.transit(
                         toAnchor.mode,
                         currentName,
@@ -1025,7 +1034,7 @@ public class CourseRecommendationService {
                         "ANCHOR",
                         "고정 장소"
                 ));
-                currentTime = anchorArrival.plusMinutes(anchorStay);
+                currentTime = advance(anchorArrival, anchorStay);
                 currentName = anchor.name();
                 currentLat = anchor.lat();
                 currentLng = anchor.lng();
@@ -1044,7 +1053,7 @@ public class CourseRecommendationService {
             placeCount = segment.placeCount;
 
             TravelLeg toAnchor = travel(currentLat, currentLng, anchor.lat(), anchor.lng());
-            LocalTime earliestAnchorArrival = currentTime.plusMinutes(toAnchor.minutes);
+            LocalTime earliestAnchorArrival = advance(currentTime, toAnchor.minutes);
             if (earliestAnchorArrival.isAfter(anchor.visitTime())) {
                 throw GadangException.badRequest("고정 장소 '" + anchor.name()
                         + "'에 " + anchor.visitTime() + "까지 도착할 수 없습니다. "
@@ -1114,7 +1123,7 @@ public class CourseRecommendationService {
         if (selectedTransport != null) {
             if (haversineKm(currentLat, currentLng, meta.hubLat, meta.hubLng) >= 0.05) {
                 TravelLeg toHub = travel(currentLat, currentLng, meta.hubLat, meta.hubLng);
-                LocalTime hubArrival = currentTime.plusMinutes(toHub.minutes);
+                LocalTime hubArrival = advance(currentTime, toHub.minutes);
                 items.add(CourseResponse.CourseItem.transit(
                         toHub.mode,
                         currentName,
@@ -1131,7 +1140,7 @@ public class CourseRecommendationService {
         } else if (placeCount > 0 || !anchors.isEmpty() || !requiredSlots.isEmpty()
                 || haversineKm(currentLat, currentLng, startPoint.lat(), startPoint.lng()) >= 0.05) {
             TravelLeg back = travel(currentLat, currentLng, startPoint.lat(), startPoint.lng());
-            LocalTime arrival = currentTime.plusMinutes(back.minutes);
+            LocalTime arrival = advance(currentTime, back.minutes);
             items.add(CourseResponse.CourseItem.transit(
                     back.mode,
                     currentName,
@@ -1153,7 +1162,7 @@ public class CourseRecommendationService {
                                           LocalTime currentTime,
                                           LocalTime end) {
         if (transport.originToHubMinutes() > 0) {
-            LocalTime hubArrival = currentTime.plusMinutes(transport.originToHubMinutes());
+            LocalTime hubArrival = advance(currentTime, transport.originToHubMinutes());
             if (hubArrival.isAfter(end)) {
                 throw GadangException.badRequest("선택한 교통수단 출발 허브까지 이동할 시간이 부족합니다.");
             }
@@ -1169,7 +1178,7 @@ public class CourseRecommendationService {
             currentTime = hubArrival;
         }
 
-        LocalTime arrival = currentTime.plusMinutes(transport.mainMinutes());
+        LocalTime arrival = advance(currentTime, transport.mainMinutes());
         if (arrival.isAfter(end)) {
             throw GadangException.badRequest("선택한 교통수단으로 목적지까지 이동할 시간이 부족합니다.");
         }
@@ -1190,7 +1199,7 @@ public class CourseRecommendationService {
                                         String startName,
                                         LocalTime currentTime,
                                         LocalTime end) {
-        LocalTime hubArrival = currentTime.plusMinutes(transport.mainMinutes());
+        LocalTime hubArrival = advance(currentTime, transport.mainMinutes());
         items.add(CourseResponse.CourseItem.transit(
                 transport.mode(),
                 transport.toHub(),
@@ -1203,7 +1212,7 @@ public class CourseRecommendationService {
         currentTime = hubArrival;
 
         if (transport.originToHubMinutes() > 0) {
-            LocalTime finalArrival = currentTime.plusMinutes(transport.originToHubMinutes());
+            LocalTime finalArrival = advance(currentTime, transport.originToHubMinutes());
             items.add(CourseResponse.CourseItem.transit(
                     "대중교통",
                     transport.fromHub(),
@@ -1312,7 +1321,7 @@ public class CourseRecommendationService {
                     slotRole(slot),
                     "필수 시간 슬롯"
             ));
-            currentTime = planned.arrival().plusMinutes(planned.stay());
+            currentTime = advance(planned.arrival(), planned.stay());
             currentName = planned.candidate().getName();
             currentLat = planned.candidate().getLat();
             currentLng = planned.candidate().getLng();
@@ -1362,9 +1371,11 @@ public class CourseRecommendationService {
             TravelLeg toTarget = travel(next.getLat(), next.getLng(), targetLat, targetLng);
             int stay = Math.max(20, next.getDefaultStayMinutes());
 
+            // LocalTime 래핑 시 isAfter(deadline)가 false가 되어 자정 넘긴 일정이 통과하는 것 차단
+            boolean wraps = wrapsPastMidnight(currentTime, (long) outbound.minutes + stay + toTarget.minutes);
             LocalTime placeArrival = currentTime.plusMinutes(outbound.minutes);
             LocalTime afterStay = placeArrival.plusMinutes(stay);
-            if (!afterStay.plusMinutes(toTarget.minutes).isAfter(deadline)) {
+            if (!wraps && !afterStay.plusMinutes(toTarget.minutes).isAfter(deadline)) {
                 items.add(CourseResponse.CourseItem.transit(
                         outbound.mode,
                         currentName,
@@ -1592,6 +1603,9 @@ public class CourseRecommendationService {
                               double targetLng,
                               LocalTime deadline) {
         TravelLeg outbound = travel(currentLat, currentLng, candidate.getLat(), candidate.getLng());
+        if (wrapsPastMidnight(currentTime, outbound.minutes)) {
+            return null;   // 이동이 자정을 넘는 후보
+        }
         LocalTime arrival = currentTime.plusMinutes(outbound.minutes);
         if (arrival.isBefore(slot.windowStart())) {
             arrival = slot.windowStart();
@@ -1601,6 +1615,9 @@ public class CourseRecommendationService {
         }
         int stay = fixedMealSlot(slot) ? slot.minStayMinutes()
                 : Math.max(slot.minStayMinutes(), candidate.getDefaultStayMinutes());
+        if (wrapsPastMidnight(arrival, stay)) {
+            return null;   // 체류가 자정을 넘는 후보 — 당일치기 범위 밖
+        }
         if (arrival.plusMinutes(stay).isAfter(slot.windowEnd())) {
             return null;
         }
@@ -1608,7 +1625,8 @@ public class CourseRecommendationService {
         if (deadline != null) {
             TravelLeg toTarget = travel(candidate.getLat(), candidate.getLng(), targetLat, targetLng);
             toTargetMinutes = toTarget.minutes;
-            if (arrival.plusMinutes(stay).plusMinutes(toTarget.minutes).isAfter(deadline)) {
+            if (wrapsPastMidnight(arrival.plusMinutes(stay), toTarget.minutes)
+                    || arrival.plusMinutes(stay).plusMinutes(toTarget.minutes).isAfter(deadline)) {
                 return null;
             }
         }
@@ -1875,6 +1893,20 @@ public class CourseRecommendationService {
 
     private LocalTime parseTime(String time) {
         return LocalTime.parse(time);
+    }
+
+    /** LocalTime은 24h 모듈러라 자정을 넘으면 비교(isAfter/isBefore)가 뒤집힌다 — 래핑 감지 */
+    private static boolean wrapsPastMidnight(LocalTime time, long minutes) {
+        return minutes > 0 && !time.plusMinutes(minutes).isAfter(time);
+    }
+
+    /** 이동·체류 누적 전용 — 자정을 넘으면 당일치기 범위 밖이므로 조용히 틀리는 대신 명시적으로 거부 */
+    private static LocalTime advance(LocalTime time, long minutes) {
+        if (wrapsPastMidnight(time, minutes)) {
+            throw GadangException.badRequest(
+                    "일정이 자정을 넘어가 계산할 수 없습니다. 출발·귀가 시간을 조정하거나 일정을 줄여 주세요.");
+        }
+        return time.plusMinutes(minutes);
     }
 
     private double haversineKm(double lat1, double lng1, double lat2, double lng2) {
