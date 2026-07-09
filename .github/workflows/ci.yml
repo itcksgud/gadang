@@ -8,6 +8,26 @@ on:
 jobs:
   backend-test:
     runs-on: ubuntu-latest
+    # contextLoads가 기동 시 schema.sql을 실행하므로 MySQL 필수 (Redis는 지연 연결이지만 안전빵)
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: gadang
+          MYSQL_USER: gadang
+          MYSQL_PASSWORD: gadang
+        ports:
+          - 3306:3306   # application.properties 기본값 localhost:3306에 맞춤
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -proot"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379   # properties 기본값이 localhost:6380 (로컬 compose 포트와 동일)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
