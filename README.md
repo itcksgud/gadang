@@ -85,6 +85,14 @@ Caffeine + Redis, Spring AI(Tool Calling), FastAPI + NumPy(RAG), Vue 3, Docker C
 
 ---
 
+### 5. 장애 격리 — API별 서킷브레이커 + 메트릭 가시화
+
+- 타임아웃(3s/10s)만으로는 외부 API 장애 시 **요청마다 10초씩 스레드가 블로킹** —
+  Resilience4j 서킷브레이커를 RestClient 인터셉터로 넣어 실패 누적 시 **즉시 실패 → 기존
+  fallback**(거리 근사·배차표)으로 전환. 외부 API 7종에 **각각 독립 브레이커**(장애 격리 단위 = 의존성 단위).
+- 429(rate limit)는 실패로 집계하지 않음 — 우리가 줄일 문제로 브레이커를 열면 오작동.
+- Actuator + Prometheus로 **캐시 적중률(`cache.gets`)·p99(`http.server.requests`)·브레이커 상태** 상시 노출.
+
 ## 트러블슈팅 기록
 
 | 문제 | 진단 | 해결 | 기록 |

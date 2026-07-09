@@ -53,6 +53,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/course/**").permitAll()
                         .requestMatchers("/api/ai/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/files/**").permitAll()
+                        // 모니터링 — 로컬/데모용 전체 공개. 운영 배포 시 health만 남기고 인증 필요
+                        .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

@@ -76,6 +76,26 @@
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
 		</dependency>
+		<!-- 모니터링 — 캐시 적중률·서킷브레이커 상태를 /actuator/metrics·/actuator/prometheus 로 노출 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+		</dependency>
+		<!-- 서킷브레이커 — Spring Boot 어댑터 없이 코어를 RestClient 인터셉터로 직접 데코레이트 -->
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-circuitbreaker</artifactId>
+			<version>2.3.0</version>
+		</dependency>
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-micrometer</artifactId>
+			<version>2.3.0</version>
+		</dependency>
 		<!-- 캐시 (Phase 2) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
