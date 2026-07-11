@@ -150,7 +150,11 @@ CREATE TABLE IF NOT EXISTS COMMUNITY_POST (
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (post_id),
     FOREIGN KEY (user_id) REFERENCES USER(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (trip_id) REFERENCES TRIP_PLAN(trip_id) ON DELETE SET NULL
+    FOREIGN KEY (trip_id) REFERENCES TRIP_PLAN(trip_id) ON DELETE SET NULL,
+    -- 목록 조회 커버링 인덱스: (필터, 정렬키) 순서로 두면 정렬키가 인덱스에 이미
+    -- 정렬돼 있어 filesort 없이 역방향 스캔으로 상위 N개만 읽고 멈춘다.
+    INDEX idx_post_blinded_created (is_blinded, created_at),  -- 공개 목록(findPostPage)
+    INDEX idx_post_user_created    (user_id, created_at)      -- 내 글 목록(findPostsByUser)
 );
 
 -- ── 게시글 장소별 상세 (머리말/꼬리말 제외 본문 데이터) ──────────────
