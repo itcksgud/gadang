@@ -57,6 +57,9 @@ public class NaverBlogService {
     @Qualifier("naverRestClient")
     private final RestClient naverRestClient;
 
+    /** 배치·온디맨드가 공유하는 일일 쿼터 게이트 — 예산 소진 시 외부 호출을 막아 먹통 방지 */
+    private final NaverQuotaGate quotaGate;
+
     /**
      * 장소명으로 블로그 언급 수 조회 (캐시 1시간)
      */
@@ -75,6 +78,11 @@ public class NaverBlogService {
     }
 
     private int fetchBlogCount(String placeName, BooleanSupplier shouldStop, Runnable onRateLimitExhausted) {
+        // 일일 쿼터 게이트 — 예산 소진 시 외부 호출 없이 0점으로 degrade (배치·온디맨드 공유 예산)
+        if (!quotaGate.tryAcquire()) {
+            log.warn("[네이버쿼터] 일일 예산 소진 — 블로그 조회 건너뜀 [{}]", placeName);
+            return 0;
+        }
         // 429(rate limit) 시 지수 백오프 재시도 — 병렬 호출 환경에서 일시적 초과 흡수
         for (int attempt = 0; attempt < 4; attempt++) {
             if (shouldStop.getAsBoolean()) {

@@ -18,11 +18,13 @@ import org.springframework.stereotype.Component;
  * 지도가 빈 채로 뜬다. 사용자가 콜드 경로를 밟지 않도록 배치가 미리 데운다.
  *
  * 쿼터 예산: 콜드 지역 1곳 ≈ 장소 수만큼 Naver 블로그 호출(최대 ~1,000건).
- * REGIONS_PER_RUN=10 → 일 최대 ~10,000건으로 Naver 일 쿼터(25,000)의 40% 이하 사용,
- * 낮 시간 실사용 트래픽 몫을 남긴다. 전체 49개 지역은 5일 주기로 순환.
+ * REGIONS_PER_RUN=18 → 일 최대 ~18,000건으로 Naver 일 쿼터(25,000)의 ~72% 상한.
+ * 평소엔 TTL(30일)이 길어 만료 임박 지역만 소수 갱신 → 실제 사용량은 훨씬 적다
+ * (비인기 지역은 장소 수도 적어 호출도 적음). 상한을 높인 건 Redis 유실 시
+ * 전체 49개 지역을 빠르게(~3일) 재워밍하기 위한 여유다.
  *
  * 우선순위: ① Redis에 키가 없는 지역(콜드) ② 남은 TTL이 짧은 순(만료 임박).
- * TTL 2일 이상 남은 지역은 건너뛴다 — 저장 TTL 7일 기준 5일마다 갱신되는 셈.
+ * TTL 3일 이상 남은 지역은 건너뛴다 — 저장 TTL 30일 기준 약 한 달마다 갱신되는 셈.
  */
 @Slf4j
 @Component
@@ -33,10 +35,10 @@ public class RegionPlacesWarmupJob {
     private final PlaceFilterService placeFilterService;
     private final StringRedisTemplate redisTemplate;
 
-    /** 하루에 데울 최대 지역 수 — Naver 블로그 쿼터 예산 */
-    private static final int REGIONS_PER_RUN = 10;
-    /** 남은 TTL이 이보다 길면 아직 신선 — 건너뜀 */
-    private static final long REFRESH_UNDER_TTL_SECONDS = TimeUnit.DAYS.toSeconds(2);
+    /** 하루에 데울 최대 지역 수 — Naver 블로그 쿼터 예산 상한(~72%) */
+    private static final int REGIONS_PER_RUN = 18;
+    /** 남은 TTL이 이보다 길면 아직 신선 — 건너뜀 (TTL 30일 기준 약 한 달 주기 갱신) */
+    private static final long REFRESH_UNDER_TTL_SECONDS = TimeUnit.DAYS.toSeconds(3);
     /** 지도 탭 기본 반경과 동일 — 캐시 키(격자)가 실사용 경로와 일치해야 의미가 있다 */
     private static final int WARMUP_RADIUS_METERS = 5_000;
 

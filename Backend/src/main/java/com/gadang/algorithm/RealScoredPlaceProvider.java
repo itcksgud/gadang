@@ -27,7 +27,7 @@ public class RealScoredPlaceProvider implements ScoredPlaceProvider, CourseCandi
             new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     private static final double GRID = 0.05;
-    private static final Duration TTL = Duration.ofDays(7);   // Redis EXPIRE가 만료 자동 처리
+    private static final Duration TTL = Duration.ofDays(30);  // Redis EXPIRE가 만료 자동 처리 (한 달 — 배치가 만료 전 갱신)
     private static final String CACHE_VERSION = "v10";
 
     @Override

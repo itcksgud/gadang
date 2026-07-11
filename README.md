@@ -32,7 +32,7 @@
   └ AI 컨시어지: Spring AI Tool Calling ───► [ FastAPI RAG 서버 ]
       │                                        (OpenAI 임베딩 · 코사인 유사도 검색)
       ├── L1 캐시: Caffeine (인스턴스 로컬, sync)
-      ├── L2 캐시: Redis    (공유, TTL 7d)
+      ├── L2 캐시: Redis    (공유, TTL 30d) + 일일 쿼터 게이트
       ▼
 [ MySQL 8 ]        [ 외부 API 5종: Kakao Local · ODsay 교통 · Naver DataLab/Blog · TourAPI · Korail ]
 ```
@@ -61,6 +61,9 @@ Caffeine + Redis, Spring AI(Tool Calling), FastAPI + NumPy(RAG), Vue 3, Docker C
 - **Cache stampede 방어**: 콜드 상태 동시 요청 N개가 전부 외부 API로 흘러가는
   문제를 진단, `@Cacheable(sync=true)`로 동일 키 단일 계산 보장.
   수평 확장 시 분산 락 필요성까지 문서화.
+- **외부 API 쿼터 보호 (2026-07-11)**: 장소 캐시 TTL 30일 + 새벽 선워밍 배치(예산 상한 ~72%) +
+  네이버 일일 쿼터 게이트(배치·온디맨드 공유 예산 24,000/일 하드캡). Redis 유실·대량 콜드
+  상황에서도 외부 검색 API 쿼터 초과를 원천 차단(소진 시 graceful degrade). [devlog](devlog/2026-07-11.md)
 - **부하 실측 (k6, 2026-07-08)**: 웜 캐시 50 VU × 30s → **53,755건 · 1,790 req/s ·
   p99 41ms · 실패 0%**. 콜드 동시 10요청 → 외부 수집 **정확히 1회**(stampede 방어 실증),
   10개 전원 84.7s에 동시 응답. [devlog](devlog/2026-07-08.md)
