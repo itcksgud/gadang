@@ -6,9 +6,9 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -21,7 +21,7 @@ import org.mockito.Mockito;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
- * 장소 캐시 워밍 배치 — 쿼터 예산(하루 10개)과 우선순위(콜드 → 만료 임박 → 신선 건너뜀) 검증.
+ * 장소 캐시 워밍 배치 — 쿼터 예산(REGIONS_PER_RUN)과 우선순위(콜드 → 만료 임박 → 신선 건너뜀) 검증.
  */
 class RegionPlacesWarmupJobTest {
 
@@ -43,7 +43,10 @@ class RegionPlacesWarmupJobTest {
 
         job().warmRegionPlaces();
 
-        verify(provider, atMost(10))
+        // 대상이 예산보다 많으면 예산까지만, 적으면 대상 전부. 상수를 하드코딩하면
+        // 예산을 조정할 때마다 이 테스트가 깨지므로 운영 상수를 그대로 참조한다.
+        int expected = Math.min(RegionPlacesWarmupJob.REGIONS_PER_RUN, RegionSeedData.REGION_META.size());
+        verify(provider, times(expected))
                 .getScoredPlaces(anyDouble(), anyDouble(), anyInt(), any(), anyString());
     }
 
